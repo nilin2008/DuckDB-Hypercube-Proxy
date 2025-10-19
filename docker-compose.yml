@@ -1,0 +1,40 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: duckdb_pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  proxy:
+    build: .
+    container_name: duckdb_proxy
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PG_DSN: postgresql://user:pass@postgres:5432/postgres
+    ports:
+      - "8000:8000"
+    volumes:
+      - duck_cache:/app
+    command: >
+      sh -c "sleep 5 && python app.py --port 8000"
+
+volumes:
+  pgdata:
+  duck_cache:
